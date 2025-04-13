@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: log-archiver
+  labels:
+    app: log-archiver
+spec:
+  schedule: "*/10 * * * *"
+  jobTemplate:
+    metadata:
+      labels:
+        app: log-archiver
+    spec:
+      template:
+        metadata:
+          labels:
+            app: log-archiver
+        spec:
+          containers:
+          - name: log-archiver
+            image: curlimages/curl
+            command: ["/bin/sh", "-c"]
+            args:
+            - |
+              timestamp=$(date +%Y%m%d%H%M%S);
+              echo "Starting log archivation at $(date)";
+              if curl -s http://app-service/logs > /tmp/app.log; then
+                tar -czf /tmp/app-logs-$timestamp.tar.gz /tmp/app.log;
+                echo "Logs successfully archived at /tmp/app-logs-$timestamp.tar.gz";
+                echo "Archivation completed at $(date)";
+              else
+                echo "Failed to fetch logs for archivation";
+                exit 1;
+              fi
+            volumeMounts:
+            - name: archive-volume
+              mountPath: /tmp
+          volumes:
+          - name: archive-volume
+            emptyDir: {}
+          restartPolicy: OnFailure 
